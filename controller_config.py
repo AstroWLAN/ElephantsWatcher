@@ -1,4 +1,6 @@
 # Import modules
+import hashlib
+
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import set_ev_cls, CONFIG_DISPATCHER, MAIN_DISPATCHER
@@ -62,3 +64,36 @@ class ElephantWatcher(app_manager.RyuApp):
         )
         # Sends the FlowMod message to the switch | installs the rule
         switch.send_msg(modMessage)
+
+
+# Implementation of the COUNT-MIN SKETCHES algorythm
+def countMinSketches(identifier):
+    global arrayCMS
+    # Evaluates the hash value of the identifier
+    shaValue = hashlib.sha256(identifier.encode('utf-8')).hexdigest()
+    # Gets the array index
+    incrementIndex = int(shaValue, base=16) % arrayCMSLength
+    if arrayCMS is None:
+        # Creates an array of ten elements initialized to zero
+        arrayCMS = [0 for _ in range(arrayCMSLength)]
+    # Increases the counter in the cell by 1
+    arrayCMS[incrementIndex] += 1
+    # 🐛 DEBUG | Prints the CMS data structure every 512 packets
+    if arrayCMS[incrementIndex] % 500 == 0:
+        visualizeCountMinSketches()
+    # If the threshold has been passed return true
+    if arrayCMS[incrementIndex] == thresholdCMS:
+        print(ansiWhite + 'Threshold has been reached!' +
+              'A rule to manage the flow will be installed...' + ansiRST)
+        # Reset the counter
+        arrayCMS[incrementIndex] = 0
+        return True
+    # Otherwise...
+    else:
+        return False
+
+
+# Visualizes the CMS data structure
+def visualizeCountMinSketches():
+    if arrayCMS is not None:
+        print(ansiWhite + 'Count-Min Sketches : ', arrayCMS, ansiRST)
