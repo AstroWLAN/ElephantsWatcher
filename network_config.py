@@ -16,6 +16,12 @@ exec(open('/home/vagrant/sflow-rt/extras/sflow.py').read())
 portMinValue = 1025
 portMaxValue = 65536
 
+# Escape sequences
+ansiWhite = u'\u001b[38;5;231m'
+ansiRed = u'\u001b[38;5;197m'
+ansiRST = u'\u001b[0m'
+ansiBlue = u'\u001b[38;5;39'
+
 
 # TOPOLOGY
 # Defines the topology
@@ -38,27 +44,27 @@ class IntrastellarTopology(Topo):
         switchD = self.addSwitch('s4')
 
         # Adds the links between the nodes
-        self.addLink(host1, switchA, bw=100)
-        self.addLink(host2, switchA, bw=100)
-        self.addLink(host7, switchA, bw=100)
-        self.addLink(host2, switchB, bw=100)
-        self.addLink(host3, switchB, bw=100)
-        self.addLink(host4, switchB, bw=100)
-        self.addLink(host4, switchC, bw=100)
-        self.addLink(host5, switchC, bw=100)
-        self.addLink(host6, switchC, bw=100)
-        self.addLink(host6, switchD, bw=100)
-        self.addLink(host7, switchD, bw=100)
-        self.addLink(host8, switchD, bw=100)
-        self.addLink(host9, switchA, bw=100)
-        self.addLink(host9, switchB, bw=100)
-        self.addLink(host9, switchC, bw=100)
-        self.addLink(host9, switchD, bw=100)
+        self.addLink(host1, switchA)
+        self.addLink(host2, switchA)
+        self.addLink(host7, switchA)
+        self.addLink(host2, switchB)
+        self.addLink(host3, switchB)
+        self.addLink(host4, switchB)
+        self.addLink(host4, switchC)
+        self.addLink(host5, switchC)
+        self.addLink(host6, switchC)
+        self.addLink(host6, switchD)
+        self.addLink(host7, switchD)
+        self.addLink(host8, switchD)
+        self.addLink(host9, switchA)
+        self.addLink(host9, switchB)
+        self.addLink(host9, switchC)
+        self.addLink(host9, switchD)
 
-        self.addLink(switchA, switchB, bw=100)
-        self.addLink(switchB, switchC, bw=100)
-        self.addLink(switchC, switchD, bw=100)
-        self.addLink(switchD, switchA, bw=100)
+        self.addLink(switchA, switchB)
+        self.addLink(switchB, switchC)
+        self.addLink(switchC, switchD)
+        self.addLink(switchD, switchA)
 
 
 # TESTS
@@ -88,8 +94,6 @@ def trafficTest(network):
     print(u"\u001b[38;5;197m\n🚐  TRAFFIC" +
           u"\u001b[38;5;231m : Generates traffic through the network\n    Dashboard : " +
           u"\u001b[38;5;39mhttps://tinyurl.com/3zwb9c2n\n" +
-          u"\u001b[38;5;231m    Flowmanager : " +
-          u"\u001b[38;5;39mhttp://localhost:8080/home/index.html" +
           u"\u001b[0m\n")
     # TRAFFIC
     portList = list(range(portMinValue, portMaxValue))
@@ -104,23 +108,19 @@ def trafficTest(network):
     mousePort = random.choice(portList)
     portList.remove(mousePort)
     # Configures the nodes
+    mouseServerCommand = 'iperf -s' + ' -p ' + str(mousePort) + ' & '
+    # Transmits 1 MB | It's a mouse... very few packets
+    mouseClientCommand = 'iperf -c ' + serverMouse.IP() + ' -p ' + str(mousePort) + ' -n ' + '100M'
+    print(u"\u001b[38;5;231m\n*** The mouse is on his way... | 100 MByte" + u"\u001b[0m\n")
+    serverMouse.cmdPrint(mouseServerCommand)
+    clientMouse.cmdPrint(mouseClientCommand)
+
     elephantServerCommand = 'iperf -s' + ' -p ' + str(elephantPort) + ' & '
     # Transmits 10 GB | It's an elephant...lots of packets!
     elephantClientCommand = 'iperf -c ' + serverElephant.IP() + ' -p ' + str(elephantPort) + ' -n ' + '1G'
-    # Edits the TCP Window Size
-    elephantClientCommand += ' -w ' + '100M'
     print(u"\u001b[38;5;231m*** The elephant is on his way... | 1 GByte" + u"\u001b[0m")
     serverElephant.cmdPrint(elephantServerCommand)
     clientElephant.cmdPrint(elephantClientCommand)
-
-    mouseServerCommand = 'iperf -s' + ' -p ' + str(mousePort) + ' & '
-    # Transmits 1 MB | It's a mouse... very few packets
-    mouseClientCommand = 'iperf -c ' + serverMouse.IP() + ' -p ' + str(mousePort) + ' -n ' + '10M'
-    # Edits the TCP Window Size
-    mouseClientCommand += ' -w ' + '1M'
-    print(u"\u001b[38;5;231m\n*** The mouse is on his way... | 10 MByte" + u"\u001b[0m\n")
-    serverMouse.cmdPrint(mouseServerCommand)
-    clientMouse.cmdPrint(mouseClientCommand)
 
 
 # MAIN
@@ -146,5 +146,14 @@ if __name__ == '__main__':
     dumpNodeConnections(net.hosts)
     reachabilityTest(net)
     trafficTest(net)
-    # Launches the CLI for further commands
-    CLI(net)
+
+    userChoice = input(ansiWhite + '❗️ Do you wanna use the CLI? [y/n]\n>> ').lower()
+    while userChoice != 'y' and userChoice != 'n':
+        userChoice = input(ansiRed + 'Bad input...retry!\n' + ansiWhite + '>> ').lower()
+    print(ansiRST)
+    if userChoice == 'y':
+        # Launches the CLI for further commands
+        CLI(net)
+    else:
+        # Stops the network
+        net.stop()
