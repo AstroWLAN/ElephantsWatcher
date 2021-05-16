@@ -15,13 +15,13 @@ ansiRed = u'\u001b[38;5;197m'
 ansiRST = u'\u001b[0m'
 ansiBlue = u'\u001b[38;5;39m'
 # Handles user preferences
-userChoice = input(ansiWhite + '\n❗️ Do you want to enable the COUNT-MIN SKETCHES algorythm? [y/n]\n>> ').lower()
+userChoice = input(ansiWhite + '\n❗️ Do you want to enable the COUNT-MIN SKETCHES algorythm? [y/n]\n> ' +
+                   ansiRST).lower()
 # Wrong input
 while userChoice != 'y' and userChoice != 'n':
-    userChoice = input(ansiRed + 'Bad input...retry!\n' + ansiWhite + '>> ').lower()
-print(ansiRST)
+    userChoice = input(ansiRed + 'Bad input...retry!\n' + ansiWhite + '> ' + ansiRST).lower()
 # FLOWMANAGER url
-print(ansiRed + 'FLOWMANAGER' + ansiWhite + ' : ' + ansiBlue + 'http://localhost:8080/home/index.html\n' + ansiRST)
+print(ansiRed + '\nFLOWMANAGER' + ansiWhite + ' : ' + ansiBlue + 'http://localhost:8080/home/index.html\n' + ansiRST)
 
 # CMS VARIABLES
 # CMS Threshold | Each iperf TCP packet is about 8KB so we set the threshold at 512MB
@@ -157,6 +157,7 @@ class ElephantWatcher(app_manager.RyuApp):
                     )
                     # Sends the rule to the switch
                     switch.send_msg(modMessage)
+                    print(ansiWhite + '   Rule installed!' + ansiRST)
 
             # Routes the current packet
             actions = [parser.OFPActionOutput(outputPort)]
