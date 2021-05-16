@@ -21,6 +21,7 @@ ansiRed = u'\u001b[38;5;197m'
 ansiRST = u'\u001b[0m'
 ansiBlue = u'\u001b[38;5;39m'
 ansiDarkGray = u'\u001b[38;5;247m'
+ansiGreen = u"\u001b[38;5;47m"
 
 
 # TOPOLOGY
@@ -68,49 +69,49 @@ class IntrastellarTopology(Topo):
 
 
 # SUPPORT FUNCTIONS
-# Visualizes the CLI
-def displayCLI(network):
-    userChoice = input(ansiWhite + '\n*** ❗️ Do you want to use the CLI? [y/n]\n' + ansiRST + '> ').lower()
+# Initializes the CLI printing the switch rules
+def enableCLI(network):
+    userChoice = input(ansiWhite + '\n*** ❗️ Do you want to visualize the switch rules? [y/n]\n> ' + ansiRST).lower()
     while userChoice != 'y' and userChoice != 'n':
-        userChoice = input(ansiRed + 'Bad input...retry!\n' + ansiWhite + '>> ').lower()
-    print(ansiRST)
+        userChoice = input(ansiRed + 'Bad input...retry!\n' + ansiWhite + '> ' + ansiRST).lower()
     if userChoice == 'y':
         # Launches the CLI for further commands
-        print(ansiRed + '⚙️   COMMAND LINE' + ansiWhite + ' : Enables the manual usage for further commands\n\n' +
-              ansiDarkGray + '                  - Visualizes the switch rules :' + ansiWhite + ' dpctl dump-flows\n' +
-              ansiDarkGray + '                  - Ends the simulation :' + ansiWhite + ' exit\n' +
-              ansiRST)
+        print(ansiRed + "\n📚  RULES\n" + ansiWhite + "    Visualizes the switch rules\n" + ansiRST)
+        CLI(network, script="/vagrant/projectLocalTest/viewSwitchRules.sh")
+    userChoice = input(ansiWhite + '\n*** ❗️ Do you want to use the CLI? [y|n]\n> ' + ansiRST).lower()
+    while userChoice != 'y' and userChoice != 'n':
+        userChoice = input(ansiRed + 'Bad input...retry!\n' + ansiWhite + '> ' + ansiRST).lower()
+    if userChoice == 'y':
         CLI(network)
 
 
 # TESTS
 # Performs a simple ping test to verify the reachability of all the nodes in the network
 def reachabilityTest(network):
-    print(u"\u001b[38;5;197m\n🔦️  REACHABILITY" + u"\u001b[38;5;231m : Hosts reachability" + u"\u001b[0m\n")
+    print(ansiRed + "\n🔦️  REACHABILITY\n" + ansiWhite + "    Hosts reachability test" + ansiRST + "\n")
     # Performs at most five pingAll tests
     attemptsCounter = 0
     dropRate = 100.0
     while dropRate != 0.0 and attemptsCounter < 5:
-        print(u"\u001b[38;5;231m🏓  Ping attempt :", attemptsCounter + 1, u"\u001b[0m")
+        print(ansiWhite + "🏓  Ping attempt :", attemptsCounter + 1, ansiRST)
         # Performs a pingAll on the network with a timeout
         dropRate = network.pingAll(timeout=1)
         # If the dropRate is not null...
         if dropRate != 0.0:
-            print(u"\u001b[38;5;197m❗️  Presence of unreachable or unknown hosts...let's try again"
+            print(ansiRed + "❌️  Presence of unreachable or unknown hosts...let's try again"
                   + u"\u001b[0m\n")
             attemptsCounter += 1
         # Otherwise...
         else:
-            print(u"\u001b[38;5;47m✅  All the hosts are reachable!"
-                  + u"\u001b[0m\n")
+            print(ansiGreen + "✅  All the hosts are reachable!" + ansiRST + "\n")
 
 
 # Generates traffic through the network
 def trafficTest(network):
-    print(u"\u001b[38;5;197m🚐  TRAFFIC" +
-          u"\u001b[38;5;231m : Sends packets through the network\n    Visualize the traffic at : " +
-          u"\u001b[38;5;39mhttps://tinyurl.com/3zwb9c2n\n" +
-          u"\u001b[0m")
+    print(ansiRed + "🚐  TRAFFIC\n" +
+          ansiWhite + "    Sends packets through the network\n    Visualize the traffic at : " +
+          ansiBlue + "https://tinyurl.com/3zwb9c2n\n" +
+          ansiRST)
     # TRAFFIC
     portList = list(range(portMinValue, portMaxValue))
     # Gets the nodes
@@ -128,7 +129,7 @@ def trafficTest(network):
     # Transmits 100 MB | It's a mouse... very few packets
     mouseClientCommand = 'iperf -c ' + serverMouse.IP() + ' -p ' + str(mousePort) + ' -n ' + '1M'
     mouseClientCommand += ' -w ' + '10M'
-    print(u"\u001b[38;5;231m*** ❗ The mouse is on his way... | 1 MB" + u"\u001b[0m")
+    print(ansiWhite + "*** ❗ The mouse is on his way... | 1 MB" + ansiRST)
     serverMouse.cmdPrint(mouseServerCommand)
     clientMouse.cmdPrint(mouseClientCommand)
 
@@ -136,7 +137,7 @@ def trafficTest(network):
     # Transmits 1 GB | It's an elephant...lots of packets!
     elephantClientCommand = 'iperf -c ' + serverElephant.IP() + ' -p ' + str(elephantPort) + ' -n ' + '100M'
     elephantClientCommand += ' -w ' + '10M'
-    print(u"\u001b[38;5;231m\n*** ❗ The elephant is on his way... | 100 MB" + u"\u001b[0m")
+    print(ansiWhite + "\n*** ❗ The elephant is on his way... | 100 MB" + ansiRST)
     serverElephant.cmdPrint(elephantServerCommand)
     clientElephant.cmdPrint(elephantClientCommand)
 
@@ -147,11 +148,11 @@ if __name__ == '__main__':
     setLogLevel('info')
     # NETWORK SETUP
     print(
-        u"\u001b[38;5;197m\n🌍  NETWORK SETUP" + u"\u001b[38;5;231m :\n" +
+        ansiRed + "\n🌍  NETWORK SETUP\n" + ansiWhite +
         u"    The network is based on a custom topology built around a central ring\n" +
         u"    A graphic representation is available at " +
-        u"\u001b[38;5;39mhttps://tinyurl.com/5d7wmxxv" +
-        u"\u001b[0m\n")
+        ansiBlue + "https://tinyurl.com/5d7wmxxv" +
+        ansiRST + "\n")
     # Defines a topology object
     topology = IntrastellarTopology()
     # Creates a Mininet network based on the defined topology
@@ -164,6 +165,6 @@ if __name__ == '__main__':
     dumpNodeConnections(net.hosts)
     reachabilityTest(net)
     trafficTest(net)
-    displayCLI(net)
+    enableCLI(net)
     # Stops the network
     net.stop()
