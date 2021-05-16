@@ -15,7 +15,7 @@ ansiRed = u'\u001b[38;5;197m'
 ansiRST = u'\u001b[0m'
 ansiBlue = u'\u001b[38;5;39m'
 # Handles user preferences
-userChoice = input(ansiWhite + '❗️ Do you want to enable the COUNT-MIN SKETCHES algorythm? [y/n]\n>> ').lower()
+userChoice = input(ansiWhite + '\n❗️ Do you want to enable the COUNT-MIN SKETCHES algorythm? [y/n]\n>> ').lower()
 # Wrong input
 while userChoice != 'y' and userChoice != 'n':
     userChoice = input(ansiRed + 'Bad input...retry!\n' + ansiWhite + '>> ').lower()
@@ -25,9 +25,9 @@ print(ansiRed + 'FLOWMANAGER' + ansiWhite + ' : ' + ansiBlue + 'http://localhost
 
 # CMS VARIABLES
 # CMS Threshold | Each iperf TCP packet is about 8KB so we set the threshold at 512MB
-thresholdCMS = 65536
+thresholdCMS = 51200
 arrayCMS = None
-arrayCMSLength = 10
+arrayCMSLength = 20
 
 
 # CONTROLLER | Elephants Watcher
@@ -86,22 +86,22 @@ class ElephantWatcher(app_manager.RyuApp):
         # Creating a packet object passing the received message data
         receivedPacket = packet.Packet(data=receivedMessage.data)
         # Gets the information about the packet at the different ISO/OSI stack
-        eth = receivedPacket.get_protocol(ethernet.ethernet)
+        ethPacket = receivedPacket.get_protocol(ethernet.ethernet)
         tcpPacket = receivedPacket.get_protocol(tcp.tcp)
         ipPacket = receivedPacket.get_protocol(ipv4.ipv4)
 
         # PACKET TYPE
         # The packet is an ARP REQUEST
-        if eth.ethertype == ether_types.ETH_TYPE_ARP:
+        if ethPacket.ethertype == ether_types.ETH_TYPE_ARP:
             self.proxyARP(receivedMessage)
             return
         # We're accepting only IPv4 packets
-        elif eth.ethertype != ether_types.ETH_TYPE_IP:
+        elif ethPacket.ethertype != ether_types.ETH_TYPE_IP:
             return
         # If the packet isn't an ARP REQUEST...
         else:
             # Retrieves the destination MAC address
-            destinationMAC = eth.dst
+            destinationMAC = ethPacket.dst
             # Finds the destination switch ID and port
             destinationSwitchID, destinationSwitchPort = self.findDestinationSwitch(destinationMAC)
             if destinationSwitchID is None:
@@ -120,7 +120,7 @@ class ElephantWatcher(app_manager.RyuApp):
                 outputPort = self.findNextHop(switch.id, destinationSwitchID)
 
             # If the CMS is enabled and we're in the last switch of the cain
-            if userChoice == 'y' and enableCMS and ipPacket is not None and tcpPacket is not None:
+            if userChoice == 'y' and enableCMS and (tcpPacket and ipPacket) is not None:
                 # Identifies the flow which the packet belongs
                 packetSrcPort = tcpPacket.src_port
                 packetDstPort = tcpPacket.dst_port
@@ -134,12 +134,12 @@ class ElephantWatcher(app_manager.RyuApp):
                 if countMinSketches(flowID):
                     # Composes the routing rule
                     elephantMatch = parser.OFPMatch(
-                        # Checks if the packet belongs to the flow
+                        # Checks if the packet belongs to the flowv| these fields generate the FLOWID
                         ipv4_src=ipPacket.src,
                         ipv4_dst=ipPacket.dst,
-                        ipv4_proto=ipPacket.proto,
-                        tcp_src_port=tcpPacket.src_port,
-                        tcp_dst_port=tcpPacket.dst_port
+                        ip_proto=ipPacket.proto,
+                        tcp_src=tcpPacket.src_port,
+                        tcp_dst=tcpPacket.dst_port
                     )
                     instructionSet = [
                         parser.OFPInstructionActions(
@@ -149,7 +149,7 @@ class ElephantWatcher(app_manager.RyuApp):
                     ]
                     # Composes the FlowMod message
                     modMessage = parser.OFPFlowMod(
-                        datapath=switch.id,
+                        datapath=switch,
                         priority=100,
                         match=elephantMatch,
                         instructions=instructionSet,
@@ -263,15 +263,15 @@ def countMinSketches(identifier):
         arrayCMS = [0 for _ in range(arrayCMSLength)]
     # Increases the counter in the cell by 1
     arrayCMS[incrementIndex] += 1
-    # 🐛 DEBUG | Prints the CMS data structure every 512 packets
-    if arrayCMS[incrementIndex] % 500 == 0:
-        visualizeCountMinSketches()
     # If the threshold has been passed return true
     if arrayCMS[incrementIndex] == thresholdCMS:
-        print(ansiWhite + 'Threshold has been reached!' +
-              'A rule to manage the flow will be installed...' + ansiRST)
+        print(ansiRed + '❗️ Threshold has been reached!\n' +
+              ansiWhite + '   A rule to manage the flow will be installed...' + ansiRST)
         # Reset the counter
+        visualizeCountMinSketches()
         arrayCMS[incrementIndex] = 0
+        print(ansiRST + '   Resetting the counter...')
+        visualizeCountMinSketches()
         return True
     # Otherwise...
     else:
@@ -281,4 +281,4 @@ def countMinSketches(identifier):
 # Visualizes the CMS data structure
 def visualizeCountMinSketches():
     if arrayCMS is not None:
-        print(ansiWhite + 'Count-Min Sketches : ', arrayCMS, ansiRST)
+        print(ansiWhite + '   Count-Min Sketches : ', arrayCMS, ansiRST)

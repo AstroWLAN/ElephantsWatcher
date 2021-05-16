@@ -20,7 +20,7 @@ ansiWhite = u'\u001b[38;5;231m'
 ansiRed = u'\u001b[38;5;197m'
 ansiRST = u'\u001b[0m'
 ansiBlue = u'\u001b[38;5;39m'
-ansiDarkGray = u'\u001b[38;5;243m'
+ansiDarkGray = u'\u001b[38;5;247m'
 
 
 # TOPOLOGY
