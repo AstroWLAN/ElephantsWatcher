@@ -120,7 +120,7 @@ class ElephantWatcher(app_manager.RyuApp):
                 outputPort = self.findNextHop(switch.id, destinationSwitchID)
 
             # If the CMS is enabled and we're in the last switch of the cain
-            if userChoice == 'y' and enableCMS and (tcpPacket and ipPacket) is not None:
+            if userChoice == 'y' and enableCMS and tcpPacket is not None and ipPacket is not None:
                 # Identifies the flow which the packet belongs
                 packetSrcPort = tcpPacket.src_port
                 packetDstPort = tcpPacket.dst_port
@@ -134,6 +134,8 @@ class ElephantWatcher(app_manager.RyuApp):
                 if countMinSketches(flowID):
                     # Composes the routing rule
                     elephantMatch = parser.OFPMatch(
+                        # Checks ethertype
+                        eth_type=ether_types.ETH_TYPE_IP,
                         # Checks if the packet belongs to the flowv| these fields generate the FLOWID
                         ipv4_src=ipPacket.src,
                         ipv4_dst=ipPacket.dst,
