@@ -39,33 +39,33 @@ class IntrastellarTopology(Topo):
         host7 = self.addHost('h7')
         host8 = self.addHost('h8')
         host9 = self.addHost('h9')
-        switchA = self.addSwitch('s1')
-        switchB = self.addSwitch('s2')
-        switchC = self.addSwitch('s3')
-        switchD = self.addSwitch('s4')
+        switch1 = self.addSwitch('s1')
+        switch2 = self.addSwitch('s2')
+        switch3 = self.addSwitch('s3')
+        switch4 = self.addSwitch('s4')
 
         # Adds the links between the nodes
-        self.addLink(host1, switchA)
-        self.addLink(host2, switchA)
-        self.addLink(host7, switchA)
-        self.addLink(host2, switchB)
-        self.addLink(host3, switchB)
-        self.addLink(host4, switchB)
-        self.addLink(host4, switchC)
-        self.addLink(host5, switchC)
-        self.addLink(host6, switchC)
-        self.addLink(host6, switchD)
-        self.addLink(host7, switchD)
-        self.addLink(host8, switchD)
-        self.addLink(host9, switchA)
-        self.addLink(host9, switchB)
-        self.addLink(host9, switchC)
-        self.addLink(host9, switchD)
+        self.addLink(host1, switch1)
+        self.addLink(host2, switch1)
+        self.addLink(host7, switch1)
+        self.addLink(host2, switch2)
+        self.addLink(host3, switch2)
+        self.addLink(host4, switch2)
+        self.addLink(host4, switch3)
+        self.addLink(host5, switch3)
+        self.addLink(host6, switch3)
+        self.addLink(host6, switch4)
+        self.addLink(host7, switch4)
+        self.addLink(host8, switch4)
+        self.addLink(host9, switch1)
+        self.addLink(host9, switch2)
+        self.addLink(host9, switch3)
+        self.addLink(host9, switch4)
 
-        self.addLink(switchA, switchB)
-        self.addLink(switchB, switchC)
-        self.addLink(switchC, switchD)
-        self.addLink(switchD, switchA)
+        self.addLink(switch1, switch2)
+        self.addLink(switch2, switch3)
+        self.addLink(switch3, switch4)
+        self.addLink(switch4, switch1)
 
 
 # SUPPORT FUNCTIONS
@@ -109,7 +109,7 @@ def reachabilityTest(network):
 # Generates traffic through the network
 def trafficTest(network):
     print(ansiRed + "🚐  TRAFFIC\n" +
-          ansiWhite + "    Sends packets through the network\n    Visualize the traffic at : " +
+          ansiWhite + "    Sends packets through the network\n    Visualize the traffic progression at : " +
           ansiBlue + "https://tinyurl.com/3zwb9c2n\n" +
           ansiRST)
     # TRAFFIC
@@ -129,15 +129,15 @@ def trafficTest(network):
     # Transmits 100 MB | It's a mouse... very few packets
     mouseClientCommand = 'iperf -c ' + serverMouse.IP() + ' -p ' + str(mousePort) + ' -n ' + '1M'
     mouseClientCommand += ' -w ' + '10M'
-    print(ansiWhite + "*** ❗ The mouse is on his way... | 1 MB" + ansiRST)
+    print(ansiWhite + "*** ❗ The mouse is on his way... | 1 MB | < h7 h8 > | s4" + ansiRST)
     serverMouse.cmdPrint(mouseServerCommand)
     clientMouse.cmdPrint(mouseClientCommand)
 
     elephantServerCommand = 'iperf -s' + ' -p ' + str(elephantPort) + ' & '
     # Transmits 1 GB | It's an elephant...lots of packets!
-    elephantClientCommand = 'iperf -c ' + serverElephant.IP() + ' -p ' + str(elephantPort) + ' -n ' + '100M'
+    elephantClientCommand = 'iperf -c ' + serverElephant.IP() + ' -p ' + str(elephantPort) + ' -n ' + '150M'
     elephantClientCommand += ' -w ' + '10M'
-    print(ansiWhite + "\n*** ❗ The elephant is on his way... | 100 MB" + ansiRST)
+    print(ansiWhite + "\n*** ❗ The elephant is on his way... | 150 MB | < h1 h3 > | s1 s2 " + ansiRST)
     serverElephant.cmdPrint(elephantServerCommand)
     clientElephant.cmdPrint(elephantClientCommand)
 
