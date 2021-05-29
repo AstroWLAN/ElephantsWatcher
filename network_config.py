@@ -70,8 +70,8 @@ class IntrastellarTopology(Topo):
 
 # SUPPORT FUNCTIONS
 # Initializes the CLI printing the switch rules
-def enableCLI(network):
-    userChoice = input(ansiWhite + '\n*** ❗️ Do you want to visualize the switch rules? [y/n]\n> ' + ansiRST).lower()
+def visualizeCLIElements(network):
+    userChoice = input(ansiWhite + '\n*** ❗️ Do you want to visualize the switch rules? [y|n]\n> ' + ansiRST).lower()
     while userChoice != 'y' and userChoice != 'n':
         userChoice = input(ansiRed + 'Bad input...retry!\n' + ansiWhite + '> ' + ansiRST).lower()
     if userChoice == 'y':
@@ -165,6 +165,6 @@ if __name__ == '__main__':
     dumpNodeConnections(net.hosts)
     reachabilityTest(net)
     trafficTest(net)
-    enableCLI(net)
+    visualizeCLIElements(net)
     # Stops the network
     net.stop()

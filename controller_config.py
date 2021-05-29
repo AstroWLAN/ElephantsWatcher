@@ -7,33 +7,38 @@ from ryu.lib.packet import packet, ethernet, ether_types, arp, tcp, ipv4
 from ryu.topology.api import get_all_host, get_all_link
 import networkx
 import hashlib
+import datetime
 
 # GLOBAL VARIABLES
 # Escape sequences
 ansiWhite = u'\u001b[38;5;231m'
 ansiRed = u'\u001b[38;5;197m'
-ansiRST = u'\u001b[0m'
 ansiBlue = u'\u001b[38;5;39m'
-# Handles user preferences
-userChoice = input(ansiWhite + '\n❗️ Do you want to enable the COUNT-MIN SKETCHES algorythm? [y/n]\n> ' +
+ansiRST = u'\u001b[0m'
+
+# Takes user preference
+userChoice = input(ansiWhite + '\n❗️️ Do you want to enable the COUNT-MIN SKETCHES algorythm? [y|n]\n> ' +
                    ansiRST).lower()
-# Wrong input
+# Checks input value correctness
 while userChoice != 'y' and userChoice != 'n':
     userChoice = input(ansiRed + 'Bad input...retry!\n' + ansiWhite + '> ' + ansiRST).lower()
-# FLOWMANAGER url
-print(ansiRed + '\nFLOWMANAGER' + ansiWhite + ' : ' + ansiBlue + 'http://localhost:8080/home/index.html' + ansiRST)
-print(ansiWhite + '              Packets will be counted in the first switch of the chain\n' + ansiRST)
+# Prints user choice
+if userChoice == 'y':
+    print(ansiWhite + '\n🎉️️ You have enabled the CMS algorithm! '
+                      'Packets will be counted in the first switch of the chain...\n' + ansiRST)
+else:
+    print(ansiWhite + '\n❌️ You have disabled the CMS algorithm! '
+                      'Packets will be managed directly by the controller...\n' + ansiRST)
 
-# CMS VARIABLES
-# CMS Threshold | Each iperf TCP packet is about 8KB so we set the threshold at 512MB
-thresholdCMS = 51200
-arrayCMSLength = 20
+# CMS variables
+thresholdCMS = 4000
+arrayCMSLength = 10
 # Creates an array of ten elements initialized to zero
 arrayCMS = [0 for _ in range(arrayCMSLength)]
 
 
 # CONTROLLER | Elephants Watcher
-class ElephantWatcher(app_manager.RyuApp):
+class ElephantsWatcher(app_manager.RyuApp):
     # OpenFlow protocol version
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
@@ -82,6 +87,8 @@ class ElephantWatcher(app_manager.RyuApp):
         parser = switch.ofproto_parser
         # Input port of the message
         inputPort = receivedMessage.match['in_port']
+        # Empty FlowID
+        flowID = ' '
 
         # Creating a packet object passing the received message data
         receivedPacket = packet.Packet(data=receivedMessage.data)
@@ -104,58 +111,55 @@ class ElephantWatcher(app_manager.RyuApp):
             destinationMAC = ethPacket.dst
             # Retrieves the source MAC address
             sourceMAC = ethPacket.src
-            # Finds the destination switch ID and port
+
+            # FLOWID | Creation
+            # IPv4 Protocol 6 is TCP
+            if userChoice == 'y' and ethPacket.ethertype == ether_types.ETH_TYPE_IP and ipPacket.proto == 6:
+                packetSrcPort = tcpPacket.src_port
+                packetDstPort = tcpPacket.dst_port
+                packetSrcIP = ipPacket.src
+                packetDstIP = ipPacket.dst
+                protocolNumber = ipPacket.proto
+                flowID = str(packetSrcIP) + str(packetDstIP) + str(protocolNumber) + str(packetSrcPort)
+                flowID += str(packetDstPort)
+
+            # DESTINATION SWITCH | Analysis
             destinationSwitchID, destinationSwitchPort = self.findDestinationSwitch(destinationMAC)
+            # Destination switch doesn't exist
             if destinationSwitchID is None:
                 # Host not found
-                print(ansiRed + 'ERROR' + ansiWhite + ' : Host not found!' + ansiRST)
+                print(ansiRed + 'ERROR' + ansiWhite + ' : Node not found!' + ansiRST)
                 return
+            # The current switch is the destination switch | the host is directly connected
             elif destinationSwitchID == switch.id:
-                # If the host is directly connected to the current switch
                 outputPort = destinationSwitchPort
-                # CMS Enabled + TCP packet | Checks if the current switch is the first one of the chain
-                if userChoice == 'y' and tcpPacket is not None and ipPacket is not None:
-                    # Identifies the flow which the packet belongs
-                    packetSrcPort = tcpPacket.src_port
-                    packetDstPort = tcpPacket.dst_port
-                    packetSrcIP = ipPacket.src
-                    packetDstIP = ipPacket.dst
-                    protocolNumber = ipPacket.proto
-                    # Builds the FlowID | We're considering TCP microflows
-                    flowID = str(packetSrcIP) + str(packetDstIP) + str(protocolNumber) + str(packetSrcPort)
-                    flowID += str(packetDstPort)
-                    if self.checkFirstSwitch(sourceMAC, switch.id):
+
+                if userChoice == 'y' and ethPacket.ethertype == ether_types.ETH_TYPE_IP and ipPacket.proto == 6:
+                    # Checks if the current switch is the first one of the chain
+                    if self.isFirstSwitch(sourceMAC, switch.id):
+                        # Increase CMS counter
                         updateCountMinSketches(flowID)
-                        if checkCMSCounterValue(flowID):
-                            installElephantRule(parser, ipPacket, tcpPacket, ofproto, outputPort, switch,
-                                                receivedMessage)
-                    else:
-                        if checkCMSCounterValue(flowID):
-                            installElephantRule(parser, ipPacket, tcpPacket, ofproto, outputPort, switch,
-                                                receivedMessage)
+
+                    # Checks if the counter has reached the threshold
+                    if checkCounterValue(flowID):
+                        # Installs the routing rule
+                        generateRoutingRule(parser, ipPacket, tcpPacket, ofproto, outputPort, switch, receivedMessage)
+                        resetCounter(flowID)
+                        print('*** Resetting the counter...')
             else:
                 # If the host isn't directly connected to the current switch
                 outputPort = self.findNextHop(switch.id, destinationSwitchID)
-                # CMS Enabled + TCP packet | Checks if the current switch is the first one of the chain
-                if userChoice == 'y' and tcpPacket is not None and ipPacket is not None:
-                    # Identifies the flow which the packet belongs
-                    packetSrcPort = tcpPacket.src_port
-                    packetDstPort = tcpPacket.dst_port
-                    packetSrcIP = ipPacket.src
-                    packetDstIP = ipPacket.dst
-                    protocolNumber = ipPacket.proto
-                    # Builds the FlowID | We're considering TCP microflows
-                    flowID = str(packetSrcIP) + str(packetDstIP) + str(protocolNumber) + str(packetSrcPort)
-                    flowID += str(packetDstPort)
-                    if self.checkFirstSwitch(sourceMAC, switch.id):
+
+                if userChoice == 'y' and ethPacket.ethertype == ether_types.ETH_TYPE_IP and ipPacket.proto == 6:
+                    if self.isFirstSwitch(sourceMAC, switch.id):
+                        # Increase CMS counter
                         updateCountMinSketches(flowID)
-                        if checkCMSCounterValue(flowID):
-                            installElephantRule(parser, ipPacket, tcpPacket, ofproto, outputPort, switch,
-                                                receivedMessage)
-                    else:
-                        if checkCMSCounterValue(flowID):
-                            installElephantRule(parser, ipPacket, tcpPacket, ofproto, outputPort, switch,
-                                                receivedMessage)
+
+                    # Checks if the counter has reached the threshold
+                    if checkCounterValue(flowID):
+                        # Installs the routing rule
+                        generateRoutingRule(parser, ipPacket, tcpPacket, ofproto, outputPort, switch, receivedMessage)
+
             # Routes the current packet
             actions = [parser.OFPActionOutput(outputPort)]
             packetOut = parser.OFPPacketOut(
@@ -237,7 +241,7 @@ class ElephantWatcher(app_manager.RyuApp):
         return None, None
 
     # Checks if the current switch is the first one of the chain
-    def checkFirstSwitch(self, sourceMAC, switchID):
+    def isFirstSwitch(self, sourceMAC, switchID):
         for host in get_all_host(self):
             if host.mac == sourceMAC:
                 if host.port.dpid == switchID:
@@ -257,36 +261,50 @@ class ElephantWatcher(app_manager.RyuApp):
         return firstLink['port']
 
 
-# Update the CMS data structure
+# Update the CMS counter related to the given FlowID
 def updateCountMinSketches(identifier):
     global arrayCMS
     # Evaluates the hash value of the identifier
     shaValue = hashlib.sha256(identifier.encode('utf-8')).hexdigest()
     # Gets the array index
-    incrementIndex = int(shaValue, base=16) % arrayCMSLength
+    arrayIndex = int(shaValue, base=16) % arrayCMSLength
     # Increases the counter in the cell by 1 unit
-    arrayCMS[incrementIndex] += 1
+    arrayCMS[arrayIndex] += 1
 
 
-# Checks the value stored in the CMS related to the flow | TRUE : Threshold reached ... FALSE : Threshold non reached
-def checkCMSCounterValue(identifier):
+# Reset the CMS counter related to the given FlowID
+def resetCounter(identifier):
+    global arrayCMS
     # Evaluates the hash value of the identifier
     shaValue = hashlib.sha256(identifier.encode('utf-8')).hexdigest()
     # Gets the array index
-    readIndex = int(shaValue, base=16) % arrayCMSLength
-    if arrayCMS[readIndex] == thresholdCMS:
+    arrayIndex = int(shaValue, base=16) % arrayCMSLength
+    # Reset the counter in the given cell of the CMS array
+    arrayCMS[arrayIndex] = 0
+
+
+# Checks the CMS counter related to the given FlowID
+def checkCounterValue(identifier):
+    # Evaluates the hash value of the identifier
+    shaValue = hashlib.sha256(identifier.encode('utf-8')).hexdigest()
+    # Gets the array index
+    arrayIndex = int(shaValue, base=16) % arrayCMSLength
+    if arrayCMS[arrayIndex] == thresholdCMS:
+        # TRUE | Threshold reached
         return True
     else:
+        # TRUE | Threshold not reached
         return False
 
 
-def installElephantRule(parser, ipPacket, tcpPacket, ofproto, outputPort, switch, receivedMessage):
+# Installs the routing rule for the detected elephant flow
+def generateRoutingRule(parser, ipPacket, tcpPacket, ofproto, outputPort, switch, receivedMessage):
     # ROUTING RULE | Composition
     # Match fields
     elephantMatch = parser.OFPMatch(
         # Checks ethertype
         eth_type=ether_types.ETH_TYPE_IP,
-        # Checks if the packet belongs to the flowv| these fields generate the FLOWID
+        # Checks if the packet belongs to the elephant flow | these fields define the FLOWID
         ipv4_src=ipPacket.src,
         ipv4_dst=ipPacket.dst,
         ip_proto=ipPacket.proto,
@@ -309,12 +327,9 @@ def installElephantRule(parser, ipPacket, tcpPacket, ofproto, outputPort, switch
         instructions=instructionSet,
         buffer_id=receivedMessage.buffer_id
     )
+
     # FLOWMOD MESSAGE | Sending
     switch.send_msg(modMessage)
-    print(ansiBlue + 'SWITCH s', switch.id, ansiWhite + ' : Rule installed!' + ansiRST)
-
-
-# Visualizes the CMS data structure
-def visualizeCountMinSketches():
-    if arrayCMS is not None:
-        print(ansiWhite + '   Count-Min Sketches : ', arrayCMS, ansiRST)
+    # Prints a confirm message
+    print(ansiWhite + '*** ' + ansiRed + 'Switch [ s' + str(switch.id) + ' ]' + ansiWhite + ' : New rule installed! '
+          + ansiRST + str(datetime.datetime.now()))
