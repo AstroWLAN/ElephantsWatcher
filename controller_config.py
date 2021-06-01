@@ -17,15 +17,14 @@ ansiBlue = u'\u001b[38;5;39m'
 ansiRST = u'\u001b[0m'
 
 # Takes user preference
-userChoice = input(ansiWhite + '\n❗️️ Do you want to enable the COUNT-MIN SKETCHES algorythm? [y|n]\n> ' +
+userChoice = input(ansiWhite + '\n❗️️ Do you want to enable the COUNT-MIN SKETCH algorithm? [y|n]\n> ' +
                    ansiRST).lower()
 # Checks input value correctness
 while userChoice != 'y' and userChoice != 'n':
     userChoice = input(ansiRed + 'Bad input...retry!\n' + ansiWhite + '> ' + ansiRST).lower()
-# Prints user choice
+# Prints the user choice
 if userChoice == 'y':
-    print(ansiWhite + '\n🎉️️ You have enabled the CMS algorithm! '
-                      'Packets will be counted in the first switch of the chain...\n' + ansiRST)
+    print(ansiWhite + '\n🎉️️ You have enabled the CMS algorithm!\n' + ansiRST)
 else:
     print(ansiWhite + '\n❌️ You have disabled the CMS algorithm! '
                       'Packets will be managed directly by the controller...\n' + ansiRST)
@@ -33,6 +32,7 @@ else:
 # CMS variables
 thresholdCMS = 4000
 arrayCMSLength = 10
+ipMinimumPacketSize = 1500
 # Creates an array of ten elements initialized to zero
 arrayCMS = [0 for _ in range(arrayCMSLength)]
 
@@ -42,7 +42,7 @@ class ElephantsWatcher(app_manager.RyuApp):
     # OpenFlow protocol version
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
-    # SWITCH FEATURES | Installs the lowest priority rule : packet sent to the controller when there are no matches
+    # SWITCH FEATURES | Installs the lowest priority rule : packets sent to the controller when there are no matches
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switchFeatures_handler(self, ev):
         # Gets the switchID
@@ -52,7 +52,7 @@ class ElephantsWatcher(app_manager.RyuApp):
         # Retrives the switch parser
         parser = switch.ofproto_parser
 
-        # Sends to the controller when there are no matches with the rules installed in the switch
+        # Sends the packet to the controller when there are no matches with the rules installed in the switch
         instructions = [
             parser.OFPInstructionActions(
                 ofproto.OFPIT_APPLY_ACTIONS,
@@ -90,9 +90,9 @@ class ElephantsWatcher(app_manager.RyuApp):
         # Empty FlowID
         flowID = ' '
 
-        # Creating a packet object passing the received message data
+        # Creates a packet object passing the received message data
         receivedPacket = packet.Packet(data=receivedMessage.data)
-        # Gets the packet information at the different layers of the OSI stack
+        # Retrieves the packet information at the different layers of the OSI stack
         ethPacket = receivedPacket.get_protocol(ethernet.ethernet)
         tcpPacket = receivedPacket.get_protocol(tcp.tcp)
         ipPacket = receivedPacket.get_protocol(ipv4.ipv4)
@@ -115,13 +115,15 @@ class ElephantsWatcher(app_manager.RyuApp):
             # FLOWID | Creation
             # IPv4 Protocol 6 is TCP
             if userChoice == 'y' and ethPacket.ethertype == ether_types.ETH_TYPE_IP and ipPacket.proto == 6:
-                packetSrcPort = tcpPacket.src_port
-                packetDstPort = tcpPacket.dst_port
-                packetSrcIP = ipPacket.src
-                packetDstIP = ipPacket.dst
-                protocolNumber = ipPacket.proto
-                flowID = str(packetSrcIP) + str(packetDstIP) + str(protocolNumber) + str(packetSrcPort)
-                flowID += str(packetDstPort)
+                # Checks the packet size
+                if ipPacket.total_length >= ipMinimumPacketSize:
+                    packetSrcPort = tcpPacket.src_port
+                    packetDstPort = tcpPacket.dst_port
+                    packetSrcIP = ipPacket.src
+                    packetDstIP = ipPacket.dst
+                    protocolNumber = ipPacket.proto
+                    flowID = str(packetSrcIP) + str(packetDstIP) + str(protocolNumber) + str(packetSrcPort)
+                    flowID += str(packetDstPort)
 
             # DESTINATION SWITCH | Analysis
             destinationSwitchID, destinationSwitchPort = self.findDestinationSwitch(destinationMAC)
@@ -135,30 +137,35 @@ class ElephantsWatcher(app_manager.RyuApp):
                 outputPort = destinationSwitchPort
 
                 if userChoice == 'y' and ethPacket.ethertype == ether_types.ETH_TYPE_IP and ipPacket.proto == 6:
-                    # Checks if the current switch is the first one of the chain
-                    if self.isFirstSwitch(sourceMAC, switch.id):
-                        # Increase CMS counter
-                        updateCountMinSketches(flowID)
+                    if ipPacket.total_length >= ipMinimumPacketSize:
+                        # Checks if the current switch is the first one of the chain
+                        if self.isFirstSwitch(sourceMAC, switch.id):
+                            # Increase CMS counter
+                            updateCountMinSketches(flowID)
 
-                    # Checks if the counter has reached the threshold
-                    if checkCounterValue(flowID):
-                        # Installs the routing rule
-                        generateRoutingRule(parser, ipPacket, tcpPacket, ofproto, outputPort, switch, receivedMessage)
-                        resetCounter(flowID)
-                        print('*** Resetting the counter...')
+                        # Checks if the counter has reached the threshold
+                        if checkCounterValue(flowID):
+                            # Installs the routing rule
+                            generateRoutingRule(parser, ipPacket, tcpPacket, ofproto, outputPort, switch,
+                                                receivedMessage)
+                            print('Resetting the counter... ' + str(arrayCMS))
+                            resetCounter(flowID)
+                            print('Done! ' + str(arrayCMS))
+
             else:
                 # If the host isn't directly connected to the current switch
                 outputPort = self.findNextHop(switch.id, destinationSwitchID)
-
                 if userChoice == 'y' and ethPacket.ethertype == ether_types.ETH_TYPE_IP and ipPacket.proto == 6:
-                    if self.isFirstSwitch(sourceMAC, switch.id):
-                        # Increase CMS counter
-                        updateCountMinSketches(flowID)
+                    if ipPacket.total_length >= ipMinimumPacketSize:
+                        if self.isFirstSwitch(sourceMAC, switch.id):
+                            # Increase CMS counter
+                            updateCountMinSketches(flowID)
 
-                    # Checks if the counter has reached the threshold
-                    if checkCounterValue(flowID):
-                        # Installs the routing rule
-                        generateRoutingRule(parser, ipPacket, tcpPacket, ofproto, outputPort, switch, receivedMessage)
+                        # Checks if the counter has reached the threshold
+                        if checkCounterValue(flowID):
+                            # Installs the routing rule
+                            generateRoutingRule(parser, ipPacket, tcpPacket, ofproto, outputPort, switch,
+                                                receivedMessage)
 
             # Routes the current packet
             actions = [parser.OFPActionOutput(outputPort)]
@@ -233,7 +240,7 @@ class ElephantsWatcher(app_manager.RyuApp):
         switch.send_msg(packetOutMessage)
         return
 
-    # Finds the datapath ID of the last switch of the chain and the relative port
+    # Finds the datapathID of the last switch of the chain and its relative port
     def findDestinationSwitch(self, destinationMAC):
         for host in get_all_host(self):
             if host.mac == destinationMAC:
@@ -248,7 +255,7 @@ class ElephantsWatcher(app_manager.RyuApp):
                     return True
         return False
 
-    # Finds the next hop to which the package will be forwarded
+    # Finds the next hop to which the packet will be forwarded
     def findNextHop(self, sourceID, destinationID):
         network = networkx.DiGraph()
         for link in get_all_link(self):
@@ -293,7 +300,7 @@ def checkCounterValue(identifier):
         # TRUE | Threshold reached
         return True
     else:
-        # TRUE | Threshold not reached
+        # FALSE | Threshold not reached
         return False
 
 
@@ -302,16 +309,17 @@ def generateRoutingRule(parser, ipPacket, tcpPacket, ofproto, outputPort, switch
     # ROUTING RULE | Composition
     # Match fields
     elephantMatch = parser.OFPMatch(
-        # Checks ethertype
+        # Checks the ethertype field
         eth_type=ether_types.ETH_TYPE_IP,
-        # Checks if the packet belongs to the elephant flow | these fields define the FLOWID
+        # Checks if the packet belongs to the identified elephant flow | these fields define the FlowID
         ipv4_src=ipPacket.src,
         ipv4_dst=ipPacket.dst,
         ip_proto=ipPacket.proto,
         tcp_src=tcpPacket.src_port,
         tcp_dst=tcpPacket.dst_port
     )
-    # Instruction set
+
+    # Instructions set
     instructionSet = [
         parser.OFPInstructionActions(
             ofproto.OFPIT_APPLY_ACTIONS,
@@ -331,5 +339,5 @@ def generateRoutingRule(parser, ipPacket, tcpPacket, ofproto, outputPort, switch
     # FLOWMOD MESSAGE | Sending
     switch.send_msg(modMessage)
     # Prints a confirm message
-    print(ansiWhite + '*** ' + ansiRed + 'Switch [ s' + str(switch.id) + ' ]' + ansiWhite + ' : New rule installed! '
-          + ansiRST + str(datetime.datetime.now()))
+    print(ansiWhite + '*** ' + ansiRed + 'Switch [ s' + str(switch.id) + ' ]' + ansiWhite + ' : New rule installed! | '
+          + str(datetime.datetime.now()) + ansiRST)
