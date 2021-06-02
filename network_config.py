@@ -7,6 +7,7 @@ from mininet.topo import Topo
 from mininet.util import dumpNodeConnections
 import random
 import sys
+import time
 
 # PATHS | File paths
 sflowPath = '/home/vagrant/sflow-rt/extras/sflow.py'
@@ -75,7 +76,7 @@ class IntrastellarTopology(Topo):
 # SUPPORT FUNCTIONS
 # Prints the rules installed in the switches of the network and initializes the CLI
 def enableCLI(network):
-    userChoice = input(ansiWhite + '\n*** ❗️ Do you want to visualize the switch rules? [y|n]\n> ' + ansiRST).lower()
+    userChoice = input(ansiWhite + '\n*** ❗️ Do you want to visualize the switch rules? [ y|n ]\n> ' + ansiRST).lower()
     while userChoice != 'y' and userChoice != 'n':
         userChoice = input(ansiRed + 'Bad input...retry!\n' + ansiWhite + '> ' + ansiRST).lower()
     if userChoice == 'y':
@@ -83,15 +84,12 @@ def enableCLI(network):
         print(ansiRed + "\n📚  RULES" + ansiWhite +
               " : Visualizes the rules installed in the switches of the network\n" + ansiRST)
         CLI(network, script=scriptPath)
-    userChoice = input(ansiWhite + '\n*** ❗️ Do you want to use the CLI? [y|n]\n> ' + ansiRST).lower()
+    userChoice = input(ansiWhite + '\n*** ❗️ Do you want to use the CLI? [ y|n ]\n> ' + ansiRST).lower()
     while userChoice != 'y' and userChoice != 'n':
         userChoice = input(ansiRed + 'Bad input...retry!\n' + ansiWhite + '> ' + ansiRST).lower()
     if userChoice == 'y':
         # Enables the CLI
         CLI(network)
-    else:
-        # Stops the network
-        network.stop()
 
 
 # TESTS
@@ -143,7 +141,7 @@ def trafficTest(network):
     # Transmits 1 MB | It's a mouse...
     mouseClientCommand = 'iperf -c ' + serverMouse.IP() + ' -p ' + str(mousePort) + ' -n ' + '1M'
     mouseClientCommand += ' -w ' + '10M'
-    print(ansiWhite + "*** ❗ The mouse is on its way... | 1 MB | C : h8 --→ S : h7 | s4" + ansiRST)
+    print(ansiWhite + "*** ❗ The mouse is on its way... | 1 MB | C : h8 --> S : h7 | s4" + ansiRST)
     serverMouse.cmdPrint(mouseServerCommand)
     clientMouse.cmdPrint(mouseClientCommand)
 
@@ -151,7 +149,7 @@ def trafficTest(network):
     # Transmits 150 MB | It's an elephant...
     elephantClientCommand = 'iperf -c ' + serverElephant.IP() + ' -p ' + str(elephantPort) + ' -n ' + '150M'
     elephantClientCommand += ' -w ' + '10M'
-    print(ansiWhite + "\n*** ❗ The elephant is on its way... | 150 MB | C : h1 --→ S : h3 | s1 s2 " + ansiRST)
+    print(ansiWhite + "\n*** ❗ The elephant is on its way... | 150 MB | C : h1 --> S : h3 | s1 s2 " + ansiRST)
     serverElephant.cmdPrint(elephantServerCommand)
     clientElephant.cmdPrint(elephantClientCommand)
 
@@ -182,3 +180,8 @@ if __name__ == '__main__':
     # Performs the traffic test
     trafficTest(net)
     enableCLI(net)
+    print(ansiWhite + '\nShutting down the network...' + ansiRST)
+    # Wait 10 secs before shut down the network
+    time.sleep(10)
+    # Stops the network
+    net.stop()

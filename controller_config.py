@@ -16,8 +16,9 @@ ansiRed = u'\u001b[38;5;197m'
 ansiBlue = u'\u001b[38;5;39m'
 ansiRST = u'\u001b[0m'
 
+print('You can visualize the traffic progression with sFlow at : https://tinyurl.com/56wvcncx')
 # Takes user preference
-userChoice = input(ansiWhite + '\n❗️️ Do you want to enable the COUNT-MIN SKETCH algorithm? [y|n]\n> ' +
+userChoice = input(ansiWhite + '\n❗️️ Do you want to enable the COUNT-MIN SKETCH algorithm? [ y|n ]\n> ' +
                    ansiRST).lower()
 # Checks input value correctness
 while userChoice != 'y' and userChoice != 'n':
@@ -112,6 +113,9 @@ class ElephantsWatcher(app_manager.RyuApp):
             # Retrieves the source MAC address
             sourceMAC = ethPacket.src
 
+            # DESTINATION SWITCH | Analysis
+            destinationSwitchID, destinationSwitchPort = self.findDestinationSwitch(destinationMAC)
+
             # FLOWID | Creation
             # IPv4 Protocol 6 is TCP
             if userChoice == 'y' and ethPacket.ethertype == ether_types.ETH_TYPE_IP and ipPacket.proto == 6:
@@ -125,8 +129,6 @@ class ElephantsWatcher(app_manager.RyuApp):
                     flowID = str(packetSrcIP) + str(packetDstIP) + str(protocolNumber) + str(packetSrcPort)
                     flowID += str(packetDstPort)
 
-            # DESTINATION SWITCH | Analysis
-            destinationSwitchID, destinationSwitchPort = self.findDestinationSwitch(destinationMAC)
             # Destination switch doesn't exist
             if destinationSwitchID is None:
                 # Host not found
@@ -148,9 +150,9 @@ class ElephantsWatcher(app_manager.RyuApp):
                             # Installs the routing rule
                             generateRoutingRule(parser, ipPacket, tcpPacket, ofproto, outputPort, switch,
                                                 receivedMessage)
-                            print('Resetting the counter... ' + str(arrayCMS))
+                            print('Resetting the counter... ')
                             resetCounter(flowID)
-                            print('Done! ' + str(arrayCMS))
+                            print('Done! ')
 
             else:
                 # If the host isn't directly connected to the current switch
