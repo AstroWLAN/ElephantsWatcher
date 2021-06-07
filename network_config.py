@@ -9,11 +9,11 @@ import random
 import sys
 import time
 
-# PATHS | File paths
+# PATHS | File paths | Update these paths for your machine
 sflowPath = '/home/vagrant/sflow-rt/extras/sflow.py'
 scriptPath = '/vagrant/elephantsDetection/viewSwitchRules.sh'
 
-# Compiles and execute sFlow helper script
+# Reads the sFlow helper script
 exec(open(sflowPath).read())
 
 # Assignable ports
@@ -25,7 +25,6 @@ ansiWhite = u'\u001b[38;5;231m'
 ansiRed = u'\u001b[38;5;197m'
 ansiRST = u'\u001b[0m'
 ansiBlue = u'\u001b[38;5;39m'
-ansiDarkGray = u'\u001b[38;5;247m'
 ansiGreen = u"\u001b[38;5;47m"
 
 
@@ -131,7 +130,7 @@ def trafficTest(network):
     clientElephant = network.get('h1')
     serverMouse = network.get('h7')
     clientMouse = network.get('h8')
-    # Ports choice
+    # Randomized ports choice
     elephantPort = random.choice(portList)
     portList.remove(elephantPort)
     mousePort = random.choice(portList)
@@ -181,7 +180,7 @@ if __name__ == '__main__':
     trafficTest(net)
     enableCLI(net)
     print(ansiWhite + '\nShutting down the network...' + ansiRST)
-    # Wait 10 secs before shut down the network
+    # Waits 10 secs before shut down the network
     time.sleep(10)
     # Stops the network
     net.stop()

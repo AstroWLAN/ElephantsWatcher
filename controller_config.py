@@ -1,4 +1,4 @@
-# Python modules
+# MODULES | Python Modules
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import set_ev_cls, CONFIG_DISPATCHER, MAIN_DISPATCHER
@@ -93,7 +93,7 @@ class ElephantsWatcher(app_manager.RyuApp):
 
         # Creates a packet object passing the received message data
         receivedPacket = packet.Packet(data=receivedMessage.data)
-        # Retrieves the packet information at the different layers of the OSI stack
+        # Retrieves the packet information for the different layers of the OSI stack
         ethPacket = receivedPacket.get_protocol(ethernet.ethernet)
         tcpPacket = receivedPacket.get_protocol(tcp.tcp)
         ipPacket = receivedPacket.get_protocol(ipv4.ipv4)
@@ -141,6 +141,7 @@ class ElephantsWatcher(app_manager.RyuApp):
                 if userChoice == 'y' and ethPacket.ethertype == ether_types.ETH_TYPE_IP and ipPacket.proto == 6:
                     if ipPacket.total_length >= ipMinimumPacketSize:
                         # Checks if the current switch is the first one of the chain
+                        # It's possible that the first switch of the chain is also the last one
                         if self.isFirstSwitch(sourceMAC, switch.id):
                             # Increase CMS counter
                             updateCountMinSketches(flowID)
@@ -151,6 +152,7 @@ class ElephantsWatcher(app_manager.RyuApp):
                             generateRoutingRule(parser, ipPacket, tcpPacket, ofproto, outputPort, switch,
                                                 receivedMessage)
                             print('Resetting the counter... ')
+                            # We'll reset the counter only in the last switch of the chain
                             resetCounter(flowID)
                             print('Done! ')
 
