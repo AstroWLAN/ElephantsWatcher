@@ -53,7 +53,7 @@ ryu-manager --observe-links controller_config.py
 cd controllerFolderPath
 sudo python3 network_config.py
 ```
-### Count Min Sketches 🧠
+### Count Min Sketch 🧠
 At controller startup you have to choose between two different operational modes 
 | Mode 🕹️ | Description ✏️ | 
 | :-- | :-- | 
