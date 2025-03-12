@@ -66,8 +66,5 @@ With the CMS algorithm enabled the amount of time requested to send all the pack
 <img width="350" height="350" src="https://github.com/AstroWLAN/ElephantFlowsManagement/blob/master/Resources/Repository%20Resources/Performance%20CMS%20Enabled.png">
 
 ### Troubleshooting 🥵
-The best way to solve the biggest amount of problems with the Mininet environment is to perform a complete cleanup
-```
-sudo mn -c
-```
+The most effective approach to resolve a large number of warnings and errors within the Mininet environment is to perform a complete cleanup with the command `sudo mn -c`
 </p>
