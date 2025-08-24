@@ -1,4 +1,4 @@
-# Elephants Detection 
+# ElephantsWatcher 
 > Project for the Software Defined Networking course A.Y. 2020/2021 @Polimi
 
 | Author 👨🏼‍💻 | Email 📨 | Version 📐 | Language 🐍 | 
